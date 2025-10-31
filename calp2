@@ -1,0 +1,68 @@
+import streamlit as st
+import ipaddress
+
+# --- CONFIGURAÇÃO DA PÁGINA ---
+st.set_page_config(page_title="Calculadora de IP", page_icon="🌐", layout="centered")
+
+# --- TEMA CLARO/ESCURO ---
+modo_escuro = st.toggle("🌙 Modo escuro", value=False)
+if modo_escuro:
+    st.markdown("<style>body {background-color: #0e1117; color: white;}</style>", unsafe_allow_html=True)
+
+# --- TÍTULO ---
+st.title("🌐 Calculadora de IP (Classes A, B e C)")
+
+# --- ESCOLHA DA CLASSE ---
+classe = st.selectbox("Escolha a classe do IP", ["A", "B", "C"], index=None, placeholder="Selecione uma classe")
+
+# --- DEFINIÇÃO AUTOMÁTICA DE IP E MÁSCARA ---
+ip_default = ""
+mask_default = ""
+if classe == "A":
+    ip_default, mask_default = "10.0.0.1", "/8"
+elif classe == "B":
+    ip_default, mask_default = "172.16.0.1", "/16"
+elif classe == "C":
+    ip_default, mask_default = "192.168.0.1", "/24"
+
+# --- CAMPOS DE ENTRADA ---
+ip = st.text_input("Endereço IP", ip_default)
+mask = st.selectbox("Máscara de sub-rede", [f"/{i}" for i in range(1, 31)], index=None, placeholder="Selecione a máscara")
+
+# --- BOTÃO CALCULAR ---
+if st.button("Calcular"):
+    try:
+        if not ip:
+            st.error("❌ Informe um endereço IP válido.")
+        else:
+            prefixo = int(mask.replace("/", ""))
+            rede = ipaddress.ip_network(f"{ip}/{prefixo}", strict=False)
+
+            network = rede.network_address
+            broadcast = rede.broadcast_address
+            mascara_decimal = str(rede.netmask)
+            total_hosts = rede.num_addresses - 2 if rede.num_addresses > 2 else 0
+            hosts_lista = list(rede.hosts())
+            first_host = hosts_lista[0] if hosts_lista else "N/A"
+            last_host = hosts_lista[-1] if hosts_lista else "N/A"
+
+            st.success("✅ Cálculo concluído!")
+            st.markdown(f"""
+            **Endereço inserido:** {ip}  
+            **Máscara:** {mascara_decimal} ({mask})  
+            **Endereço de rede:** {network}  
+            **Primeiro IP válido:** {first_host}  
+            **Último IP válido:** {last_host}  
+            **Broadcast:** {broadcast}  
+            **Total de hosts possíveis:** {total_hosts}  
+            """)
+
+            # Sub-redes automáticas
+            nova_mascara = prefixo + 1 if prefixo < 32 else prefixo
+            subnets = list(rede.subnets(new_prefix=nova_mascara))
+            st.markdown("### Sub-redes (prefixo +1):")
+            for s in subnets[:8]:
+                st.write(f" - {s}")
+
+    except Exception as e:
+        st.error(f"⚠️ Erro: {e}")
